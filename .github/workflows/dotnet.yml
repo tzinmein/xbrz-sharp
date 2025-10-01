@@ -1,91 +1,73 @@
-# .NET Build, Test, and Publish
-name: .NET Build, Test, and Publish
+# .NET Build & Publish NuGet
+name: Build & Publish NuGet
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:
-    inputs:
-      release_version:
-        description: 'Release version (e.g. 1.0.0 or 1.0.0-beta.1)'
-        required: false
+    branches:
+      - master
+    tags:
+      - 'v*.*.*' # release tags
 
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-    - name: Cache NuGet packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
 
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+      - name: Test
+        run: dotnet test -c Release --no-build --verbosity normal
 
-    - name: Test
-      run: dotnet test --no-build --configuration Release --verbosity normal
+      - name: Set package version
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          elif [[ "${GITHUB_REF_NAME}" == "master" ]]; then
+            VERSION="1.0.0-beta.${GITHUB_RUN_NUMBER}"
+          else
+            VERSION="0.0.0-ci.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "Version set to $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Pack XbrzSharp
+        run: dotnet pack src/XbrzSharp/XbrzSharp.csproj -c Release -o ./artifacts /p:Version=$VERSION --no-build
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts/*.nupkg
 
   publish:
-    needs: build-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-
+    needs: build
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-    - name: Cache NuGet packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts
 
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Set version
-      id: set_version
-      run: |
-        if [ -n "${{ github.event.inputs.release_version }}" ]; then
-          VERSION="${{ github.event.inputs.release_version }}"
-        else
-          VERSION="0.1.${GITHUB_RUN_NUMBER}-ci"
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-    - name: Pack XbrzSharp
-      run: dotnet pack src/XbrzSharp/XbrzSharp.csproj --configuration Release -p:PackageVersion=${{ env.VERSION }} --output ./nupkg
-
-    - name: Publish XbrzSharp artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: XbrzSharp-nuget
-        path: ./nupkg
-
-    - name: Publish to NuGet
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_version != ''
-      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.XBRZ_NUGET_KEY }} --source https://api.nuget.org/v3/index.json
+      - name: Publish to NuGet
+        run: dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
