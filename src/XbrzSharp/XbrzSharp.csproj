@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Xbrz</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Authors>Ho Tzin Mein</Authors>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/tzinmein/xbrz-net/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/tzinmein/xbrz-net/</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Description>.NET 8 port of xBRZ 1.8 – high-quality 2D image upscaling library.</Description>
+    <PackageLicenseExpression>GPL-3.0</PackageLicenseExpression>
+    <Title>XbrzSharp</Title>
+    <PackageTags>xBRZ; upscaling; 2D; image</PackageTags>
+    <Copyright>Copyright $([System.DateTime]::Now.Year) Ho Tzin Mein</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
