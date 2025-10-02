@@ -57,7 +57,7 @@ public class ColorDistanceTest
 
     private static int HtmlToArgb(string html)
     {
-        var color = SixLabors.ImageSharp.Color.Parse(html).ToPixel<Rgba32>();
+        var color = Color.Parse(html).ToPixel<Rgba32>();
         return (color.A << 24) | (color.R << 16) | (color.G << 8) | color.B;
     }
 }

@@ -4,6 +4,8 @@
 // Copyright (c) 2025 Ho Tzin Mein
 //
 // For the full license text, see LICENSE.md in the repository
+using System.Buffers;
+using System.Runtime.CompilerServices;
 using Xbrz.ColorDistance;
 using Xbrz.Scaler;
 
@@ -55,7 +57,9 @@ public class XbrzScaler
     public int Factor() => scaler.Scale;
     public int Scale() => Factor();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private double Dist(int pix1, int pix2) => dist(pix1, pix2);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool Eq(int pix1, int pix2) => Dist(pix1, pix2) < cfg.EqualColorTolerance;
 
     private void PreProcessCorners(Kernel4x4 ker, BlendResult result)
@@ -149,55 +153,65 @@ public class XbrzScaler
         yLast = Math.Min(yLast, srcHeight);
         if (yFirst >= yLast || srcWidth <= 0)
             return;
-        byte[] preProcBuf = new byte[srcWidth];
-        var ker4 = Kernel4x4.Instance(src, srcWidth, srcHeight, withAlpha);
-        var outMatrix = OutputMatrix.Instance(scaler.Scale, trg, srcWidth * scaler.Scale);
-        var res = BlendResult.Instance();
-        ker4.PositionY(yFirst - 1);
-        PreProcessCorners(ker4, res);
-        BlendInfo.ClearAddTopL(preProcBuf, 0, res.blend_k);
-        for (int x = 0; x < srcWidth; ++x)
+
+        Parallel.For(yFirst, yLast, y =>
         {
-            ker4.Shift();
-            ker4.ReadDhlp(x);
-            PreProcessCorners(ker4, res);
-            BlendInfo.AddTopR(preProcBuf, x, res.blend_j);
-            if (x + 1 < srcWidth)
-                BlendInfo.ClearAddTopL(preProcBuf, x + 1, res.blend_k);
-        }
-        var ker3 = ker4.Kernel3x3();
-        for (int y = yFirst; y < yLast; ++y)
-        {
-            outMatrix.PositionY(y);
-            ker4.PositionY(y);
-            byte blend_xy1;
-            PreProcessCorners(ker4, res);
-            blend_xy1 = BlendInfo.ClearAddTopL(res.blend_k);
-            BlendInfo.AddBottomL(preProcBuf, 0, res.blend_g);
-            for (int x = 0; x < srcWidth; ++x, outMatrix.IncrementX())
+            var pool = ArrayPool<byte>.Shared;
+            byte[] preProcBuf = pool.Rent(srcWidth);
+            try
             {
-                ker4.Shift();
-                ker4.ReadDhlp(x);
-                byte blend_xy = preProcBuf[x];
+                var ker4 = Kernel4x4.Instance(src, srcWidth, srcHeight, withAlpha);
+                var outMatrix = OutputMatrix.Instance(scaler.Scale, trg, srcWidth * scaler.Scale);
+                var res = BlendResult.Instance();
+
+                ker4.PositionY(y - 1);
                 PreProcessCorners(ker4, res);
-                blend_xy = BlendInfo.AddBottomR(blend_xy, res.blend_f);
-                blend_xy1 = BlendInfo.AddTopR(blend_xy1, res.blend_j);
-                preProcBuf[x] = blend_xy1;
-                if (x + 1 < srcWidth)
+                BlendInfo.ClearAddTopL(preProcBuf, 0, res.blend_k);
+                for (int x = 0; x < srcWidth; ++x)
                 {
-                    blend_xy1 = BlendInfo.ClearAddTopL(res.blend_k);
-                    BlendInfo.AddBottomL(preProcBuf, x + 1, res.blend_g);
+                    ker4.Shift();
+                    ker4.ReadDhlp(x);
+                    PreProcessCorners(ker4, res);
+                    BlendInfo.AddTopR(preProcBuf, x, res.blend_j);
+                    if (x + 1 < srcWidth)
+                        BlendInfo.ClearAddTopL(preProcBuf, x + 1, res.blend_k);
                 }
-                outMatrix.FillBlock(ker4.f);
-                if (BlendInfo.BlendingNeeded(blend_xy))
+                var ker3 = ker4.Kernel3x3();
+                outMatrix.PositionY(y);
+                ker4.PositionY(y);
+                byte blend_xy1;
+                PreProcessCorners(ker4, res);
+                blend_xy1 = BlendInfo.ClearAddTopL(res.blend_k);
+                BlendInfo.AddBottomL(preProcBuf, 0, res.blend_g);
+                for (int x = 0; x < srcWidth; ++x, outMatrix.IncrementX())
                 {
-                    BlendPixel(RotationDegree.Rot0, ker3, outMatrix, blend_xy);
-                    BlendPixel(RotationDegree.Rot90, ker3, outMatrix, blend_xy);
-                    BlendPixel(RotationDegree.Rot180, ker3, outMatrix, blend_xy);
-                    BlendPixel(RotationDegree.Rot270, ker3, outMatrix, blend_xy);
+                    ker4.Shift();
+                    ker4.ReadDhlp(x);
+                    byte blend_xy = preProcBuf[x];
+                    PreProcessCorners(ker4, res);
+                    blend_xy = BlendInfo.AddBottomR(blend_xy, res.blend_f);
+                    blend_xy1 = BlendInfo.AddTopR(blend_xy1, res.blend_j);
+                    preProcBuf[x] = blend_xy1;
+                    if (x + 1 < srcWidth)
+                    {
+                        blend_xy1 = BlendInfo.ClearAddTopL(res.blend_k);
+                        BlendInfo.AddBottomL(preProcBuf, x + 1, res.blend_g);
+                    }
+                    outMatrix.FillBlock(ker4.f);
+                    if (BlendInfo.BlendingNeeded(blend_xy))
+                    {
+                        BlendPixel(RotationDegree.Rot0, ker3, outMatrix, blend_xy);
+                        BlendPixel(RotationDegree.Rot90, ker3, outMatrix, blend_xy);
+                        BlendPixel(RotationDegree.Rot180, ker3, outMatrix, blend_xy);
+                        BlendPixel(RotationDegree.Rot270, ker3, outMatrix, blend_xy);
+                    }
                 }
             }
-        }
+            finally
+            {
+                pool.Return(preProcBuf);
+            }
+        });
     }
 
     public static int[] ScaleImage(int factor, bool hasAlpha, int[] src, int[] trg, int srcWidth, int srcHeight)
