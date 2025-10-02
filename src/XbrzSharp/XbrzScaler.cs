@@ -169,8 +169,7 @@ public class XbrzScaler
                 BlendInfo.ClearAddTopL(preProcBuf, 0, res.blend_k);
                 for (int x = 0; x < srcWidth; ++x)
                 {
-                    ker4.Shift();
-                    ker4.ReadDhlp(x);
+                    ker4.ShiftAndReadDhlp(x);
                     PreProcessCorners(ker4, res);
                     BlendInfo.AddTopR(preProcBuf, x, res.blend_j);
                     if (x + 1 < srcWidth)
@@ -185,10 +184,9 @@ public class XbrzScaler
                 BlendInfo.AddBottomL(preProcBuf, 0, res.blend_g);
                 for (int x = 0; x < srcWidth; ++x, outMatrix.IncrementX())
                 {
-                    ker4.Shift();
-                    ker4.ReadDhlp(x);
+                    ker4.ShiftAndReadDhlp(x);
+                    PreProcessCorners(ker4, res); // Only call once per pixel
                     byte blend_xy = preProcBuf[x];
-                    PreProcessCorners(ker4, res);
                     blend_xy = BlendInfo.AddBottomR(blend_xy, res.blend_f);
                     blend_xy1 = BlendInfo.AddTopR(blend_xy1, res.blend_j);
                     preProcBuf[x] = blend_xy1;

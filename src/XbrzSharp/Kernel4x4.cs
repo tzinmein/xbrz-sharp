@@ -78,10 +78,11 @@ internal sealed class Kernel4x4
         l = src[s_p1 + xc_p2];
         p = src[s_p2 + xc_p2];
     }
-    public void Shift()
+    public void ShiftAndReadDhlp(int x)
     {
         a = b; e = f; i = j; m = n;
         b = c; f = g; j = k; n = o;
         c = d; g = h; k = l; o = p;
+        ReadDhlp(x);
     }
 }
