@@ -11,7 +11,7 @@ This is a .NET 8 port of xBRZ 1.8, based on the [Java port by Stanio](https://gi
 
 **Important:** This project is **distinct** from another .NET port [xBRZ.NET](https://github.com/Helion-Engine/xBRZ.NET) (namespace `xBRZNet`).
 
-Right ow it's a very straightforward port. Performance optimizations and more idiomatic .NET code may be added in the future.
+Right now it's a very straightforward port. Performance optimizations and more idiomatic .NET code may be added in the future.
 
 Copyright (c) 2025 Ho Tzin Mein
 
@@ -71,9 +71,7 @@ scaledBitmap.Save("output@3x.png");
 ```
 ## Attribution for Test Assets
 
-Test inputs and expected outputs are copied from the xBRZ Java port by Stanio:
-
-Java port repository: https://github.com/stanio/xbzr-java
+Test inputs and expected outputs are copied from the xBRZ Java port by Stanio.
 
 ## License
 
