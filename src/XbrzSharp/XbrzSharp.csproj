@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <Authors>Ho Tzin Mein</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageProjectUrl>https://github.com/tzinmein/xbrz-net/</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/tzinmein/xbrz-net/</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/tzinmein/xbrz-sharp/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/tzinmein/xbrz-sharp/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Description>.NET 8 port of xBRZ 1.8 – high-quality 2D image upscaling library.</Description>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
