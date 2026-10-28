@@ -1,0 +1,16 @@
+---
+description: Core agent constraints for xbrz-sharp
+alwaysApply: true
+---
+
+# xbrz-sharp
+
+Read `AGENTS.md` for full context. Short rules:
+
+- Pixel output is gated by goldens under `tests/XbrzSharp.Tests/test/`. Structure should be idiomatic C#.
+- Public API: `Xbrz.XbrzScaler` + `ScalerCfg`; pixels are ARGB `int[]`; factors 2–6.
+- Core (`src/XbrzSharp/`) is **GPL-3.0**; tool/tests/docs are **0BSD**. Keep matching file headers.
+- After algorithm or scaler changes: `dotnet test`. Do not loosen tolerances or replace goldens to pass.
+- Keep ImageSharp out of the core library. Nullable: annotate properly, avoid `!` shortcuts.
+- Not the same project as Helion `xBRZ.NET` (`xBRZNet`).
+- Commands: `dotnet build`, `dotnet test`, `dotnet run --project src/XbrzSharpTool -- <src> [factor]`.

@@ -1,61 +1,63 @@
-// xBrzNet - .NET port of xBRZ
+// XbrzSharp - .NET port of xBRZ
 // Core library licensed under GPL-3.0
 //
 // Copyright (c) 2025 Ho Tzin Mein
 //
 // For the full license text, see LICENSE.md in the repository
-using System.Collections.Concurrent;
-
 namespace Xbrz;
 
 internal sealed class MatrixRotation
 {
     public const int HalfByte = sizeof(byte) * 8 / 2;
-    private readonly int N;
-    private readonly int Nsq;
+
+    private static readonly MatrixRotation[] Cache =
+    [
+        null!, // unused index 0
+        null!, // unused index 1
+        new(2),
+        new(3),
+        new(4),
+        new(5),
+        new(6),
+    ];
+
+    private readonly int n;
+    private readonly int nSq;
     private readonly byte[] lookup;
-    public MatrixRotation(int N)
+
+    private MatrixRotation(int n)
     {
-        this.N = N;
-        Nsq = N * N;
-        if (N <= 0 || N >= 16)
-            throw new ArgumentException("N should be > 0 and < 16");
-        byte[] lookup = new byte[4 * Nsq];
+        this.n = n;
+        nSq = n * n;
+        lookup = new byte[4 * nSq];
         for (int rotDeg = 0; rotDeg < 4; rotDeg++)
         {
-            int offset = rotDeg * Nsq;
-            for (int I = 0; I < N; I++)
+            int offset = rotDeg * nSq;
+            for (int i = 0; i < n; i++)
             {
-                for (int J = 0; J < N; J++)
-                {
-                    lookup[offset + (I * N) + J] = Calc(rotDeg, (byte)(I << HalfByte | J));
-                }
+                for (int j = 0; j < n; j++)
+                    lookup[offset + (i * n) + j] = CalcRecursive(rotDeg, (byte)(i << HalfByte | j));
             }
         }
-        this.lookup = lookup;
     }
 
-    private static readonly ConcurrentDictionary<int, MatrixRotation> instance = new();
-    public static MatrixRotation Of(int N)
+    public static MatrixRotation Of(int n)
     {
-        return instance.GetOrAdd(N, n => new MatrixRotation(n));
+        if ((uint)n - 2u > 4u)
+            throw new ArgumentOutOfRangeException(nameof(n), "Scale must be 2–6");
+        return Cache[n];
     }
 
-    private byte Calc(int rotDeg, byte IJ)
+    private byte CalcRecursive(int rotDeg, byte ij)
     {
         if (rotDeg == 0)
-            return IJ;
-        byte IJ_old = Calc(rotDeg - 1, IJ);
-        int J_old = IJ_old & 0xF;
-        int I_old = IJ_old >> HalfByte & 0xF;
-        int rot_I = N - 1 - J_old;
-        int rot_J = I_old;
-        return (byte)(rot_I << HalfByte | rot_J);
+            return ij;
+        byte ijOld = CalcRecursive(rotDeg - 1, ij);
+        int jOld = ijOld & 0xF;
+        int iOld = ijOld >> HalfByte & 0xF;
+        return (byte)((n - 1 - jOld) << HalfByte | iOld);
     }
 
-    public byte Calc(RotationDegree rotDeg, int I, int J)
-    {
-        int offset = (int)rotDeg * Nsq;
-        return lookup[offset + (I * N) + J];
-    }
+    public byte Calc(RotationDegree rotDeg, int i, int j)
+        => lookup[(int)rotDeg * nSq + (i * n) + j];
 }

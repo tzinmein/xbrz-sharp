@@ -8,7 +8,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Xbrz;
 
-namespace xBrzNet.Tests;
+namespace XbrzSharp.Tests;
 
 public abstract class AbstractScalerTest
 {

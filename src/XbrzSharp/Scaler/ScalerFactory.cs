@@ -1,4 +1,4 @@
-// xBrzNet - .NET port of xBRZ
+// XbrzSharp - .NET port of xBRZ
 // Core library licensed under GPL-3.0
 //
 // Copyright (c) 2025 Ho Tzin Mein
@@ -8,16 +8,13 @@ namespace Xbrz.Scaler;
 
 internal static class ScalerFactory
 {
-    public static IScaler ForFactor(int factor, bool withAlpha)
+    public static AbstractScaler ForFactor(int factor, bool withAlpha) => factor switch
     {
-        return factor switch
-        {
-            2 => new Scaler2x(withAlpha),
-            3 => new Scaler3x(withAlpha),
-            4 => new Scaler4x(withAlpha),
-            5 => new Scaler5x(withAlpha),
-            6 => new Scaler6x(withAlpha),
-            _ => throw new ArgumentException($"Illegal scaling factor: {factor}")
-        };
-    }
+        2 => new Scaler2x(withAlpha),
+        3 => new Scaler3x(withAlpha),
+        4 => new Scaler4x(withAlpha),
+        5 => new Scaler5x(withAlpha),
+        6 => new Scaler6x(withAlpha),
+        _ => throw new ArgumentException($"Illegal scaling factor: {factor}")
+    };
 }

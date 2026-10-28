@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Xbrz</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -10,7 +10,7 @@
     <PackageProjectUrl>https://github.com/tzinmein/xbrz-sharp/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/tzinmein/xbrz-sharp/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <Description>.NET 8 port of xBRZ 1.8 – high-quality 2D image upscaling library.</Description>
+    <Description>.NET 10 port of xBRZ 1.8 – high-quality 2D image upscaling library.</Description>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <Title>XbrzSharp</Title>
     <PackageTags>xBRZ; upscaling; 2D; image</PackageTags>

@@ -6,7 +6,7 @@
 // For the full license text, see LICENSE.md in the repository
 using Xbrz.ColorDistance;
 
-namespace xBrzNet.Tests;
+namespace XbrzSharp.Tests;
 
 public class ColorDistanceBufferedTest
 {

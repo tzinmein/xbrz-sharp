@@ -1,0 +1,15 @@
+---
+description: Core library conventions for XbrzSharp
+globs: src/XbrzSharp/**/*.cs
+alwaysApply: false
+---
+
+# Core library
+
+When editing `src/XbrzSharp/**`:
+
+- Prefer idiomatic C#. Do not preserve Java layout, ThreadLocal singletons, or snake_case for fidelity.
+- Do not change YCbCr weights, `ScalerCfg` defaults, `AlphaGrad` fractions, or blend thresholds unless intentional — then prove with full `dotnet test`.
+- Keep `Scaler2x`–`Scaler6x` as separate types; share plumbing, not math tables.
+- `ColorDistanceFactory` is internal; public consumers use `XbrzScaler` / the `ColorDistance` delegate.
+- GPL-3.0 header on new core files (`XbrzSharp`). No ImageSharp or other package refs in `XbrzSharp.csproj`.

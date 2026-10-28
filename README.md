@@ -3,15 +3,15 @@
 ![.NET Build & Test](https://github.com/tzinmein/xbrz-sharp/workflows/.NET%20Build,%20Test,%20and%20Publish/badge.svg)
 [![NuGet](https://img.shields.io/nuget/v/XbrzSharp.svg?style=flat-square)](https://www.nuget.org/packages/XbrzSharp/)
 [![License](https://img.shields.io/badge/License-GPL%203.0%20%2B%200BSD-blue.svg)](LICENSE.md)
-![.NET](https://img.shields.io/badge/.NET-8.0-blue)
+![.NET](https://img.shields.io/badge/.NET-10.0-blue)
 
 [xBRZ](https://sourceforge.net/projects/xbrz/): "Scale by rules" – high quality image upscaling filter by Zenju.
 
-This is a .NET 8 port of xBRZ 1.8, based on the [Java port by Stanio](https://github.com/stanio/xbzr-java).
+This is a .NET 10 port of xBRZ 1.8, based on the [Java port by Stanio](https://github.com/stanio/xbrz-java).
 
 **Important:** This project is **distinct** from another .NET port [xBRZ.NET](https://github.com/Helion-Engine/xBRZ.NET) (namespace `xBRZNet`).
 
-Right now it's a very straightforward port. Performance optimizations and more idiomatic .NET code may be added in the future.
+Pixel output aims to match the reference goldens; the C# code is organized idiomatically rather than as a line-by-line structural port.
 
 Copyright (c) 2025 Ho Tzin Mein
 
@@ -75,7 +75,7 @@ Test inputs and expected outputs are copied from the xBRZ Java port by Stanio.
 
 ## License
 
-- **Core library (`xBrzNet`)**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
+- **Core library (`XbrzSharp`)**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 - **Other code (tools, tests, helpers, documentation)**: [BSD Zero Clause License](https://spdx.org/licenses/0BSD.html)
 
 See [LICENSE](LICENSE.md) for full license texts.

@@ -1,4 +1,4 @@
-// xBrzNet - .NET port of xBRZ
+// XbrzSharp - .NET port of xBRZ
 // Core library licensed under GPL-3.0
 //
 // Copyright (c) 2025 Ho Tzin Mein

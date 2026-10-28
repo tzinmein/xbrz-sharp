@@ -2,14 +2,14 @@
 
 This repository is dual-licensed:
 
-- **Core library (`XbrzSharp`)** – GPL-3.0  
-- **Other code (`XbrzSharpTool`, tests, helpers, documentation)** – 0BSD
+- **Core library (`XbrzSharp`)** â€“ GPL-3.0  
+- **Other code (`XbrzSharpTool`, tests, helpers, documentation)** â€“ 0BSD
 
 ---
 
-## 1. Core Library (`XbrzSharp`) – GPL-3.0
+## 1. Core Library (`XbrzSharp`) â€“ GPL-3.0
 
-The core xBRZ algorithm library (`XbrzSharp`) is a .NET 8 port of xBRZ 1.8, derived from the Java port by Stanio.
+The core xBRZ algorithm library (`XbrzSharp`) is a .NET 10 port of xBRZ 1.8, derived from the Java port by Stanio.
 
 This code is licensed under the [GNU General Public License version 3.0 (GPL-3.0)](https://www.gnu.org/licenses/gpl-3.0.html).
 
@@ -693,7 +693,7 @@ Public License instead of this License.  But first, please read
 
 ---
 
-## 2. Other Code – 0BSD
+## 2. Other Code â€“ 0BSD
 
 All other code in this repository, including:
 
@@ -721,5 +721,5 @@ PERFORMANCE OF THIS SOFTWARE.
 
 ### Notes
 
-- Test inputs/outputs derived from the Java port are considered **0BSD**, following the original author’s licensing.  
+- Test inputs/outputs derived from the Java port are considered **0BSD**, following the original authorâ€™s licensing.  
 - Core algorithm remains **GPL-3.0**, so any modifications to it must comply with GPLv3.

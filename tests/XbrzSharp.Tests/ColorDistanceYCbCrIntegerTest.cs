@@ -9,7 +9,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Xbrz.ColorDistance;
 
-namespace xBrzNet.Tests;
+namespace XbrzSharp.Tests;
 
 public class ColorDistanceYCbCrIntegerTest
 {
