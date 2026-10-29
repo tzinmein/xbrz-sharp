@@ -4,9 +4,6 @@
 // Copyright (c) 2025 Ho Tzin Mein
 //
 // For the full license text, see LICENSE.md in the repository
-using System;
-using System.IO;
-using System.Linq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Png;

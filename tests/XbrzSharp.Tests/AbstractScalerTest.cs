@@ -27,20 +27,20 @@ public abstract class AbstractScalerTest
     public void FullPicture()
     {
         // Test with alpha disabled, deviation 0.001
-        TestImage(new XbrzScaler(XbrzScaler().Factor(), false), "test/gbamockup", 0.001);
+        TestImage(new XbrzScaler(XbrzScaler().Factor, false), "test/gbamockup", 0.001);
     }
 
     [Fact]
     public void ColorDistanceRGB()
     {
-        var scaler = new XbrzScaler(XbrzScaler().Factor(), false, new XbrzScaler.ScalerCfg(), Xbrz.ColorDistance.ColorDistanceFactory.Rgb());
+        var scaler = new XbrzScaler(XbrzScaler().Factor, false, new XbrzScaler.ScalerCfg(), Xbrz.ColorDistance.ColorDistanceFactory.Rgb());
         TestImage(scaler, "test/gbamockup", 3.0);
     }
 
     [Fact]
     public void ColorDistanceYCbCrBuffered()
     {
-        var scaler = new XbrzScaler(XbrzScaler().Factor(), false, new XbrzScaler.ScalerCfg(), Xbrz.ColorDistance.ColorDistanceFactory.BufferedYCbCr(5));
+        var scaler = new XbrzScaler(XbrzScaler().Factor, false, new XbrzScaler.ScalerCfg(), Xbrz.ColorDistance.ColorDistanceFactory.BufferedYCbCr(5));
         TestImage(scaler, "test/gbamockup", 3.0);
     }
 
@@ -51,7 +51,7 @@ public abstract class AbstractScalerTest
         int srcWidth = source.Width;
         int srcHeight = source.Height;
         int[] srcPixels = GetPixels(source);
-        int factor = XbrzScaler().Factor();
+        int factor = XbrzScaler().Factor;
         int destWidth = srcWidth * factor;
         int destHeight = srcHeight * factor;
         int[] destPixels = new int[destWidth * destHeight];
@@ -66,7 +66,7 @@ public abstract class AbstractScalerTest
 
     protected void TestImage(XbrzScaler scaler, string imageName, double deviation)
     {
-        int factor = scaler.Factor();
+        int factor = scaler.Factor;
         var source = LoadImage($"{imageName}.png");
         int srcWidth = source.Width;
         int srcHeight = source.Height;

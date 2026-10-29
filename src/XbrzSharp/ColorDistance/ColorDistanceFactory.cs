@@ -26,13 +26,4 @@ internal static class ColorDistanceFactory
 
     public static ColorDistance BufferedYCbCr(int sigBits)
         => new ColorDistanceYCbCrBuffered(sigBits).Calc;
-
-    public static ColorDistance WithAlpha(ColorDistance dist) => (pix1, pix2) =>
-    {
-        int a1 = Color.GetAlpha(pix1);
-        int a2 = Color.GetAlpha(pix2);
-        double d = dist(pix1, pix2);
-        return a1 < a2 ? (a1 / 255.0 * d) + (a2 - a1)
-                       : (a2 / 255.0 * d) + (a1 - a2);
-    };
 }

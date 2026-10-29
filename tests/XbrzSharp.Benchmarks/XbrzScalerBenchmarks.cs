@@ -25,10 +25,10 @@ public class XbrzScalerBenchmarks
     [Params(ImageContentType.Solid, ImageContentType.Gradient, ImageContentType.Random)]
     public ImageContentType ContentType { get; set; }
 
-    private int[] src;
-    private int[] trg;
-    private XbrzScaler scaler;
-    private Random rng;
+    private int[] src = null!;
+    private int[] trg = null!;
+    private XbrzScaler scaler = null!;
+    private Random rng = null!;
 
     [GlobalSetup]
     public void Setup()

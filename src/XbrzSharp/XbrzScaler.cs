@@ -5,70 +5,134 @@
 //
 // For the full license text, see LICENSE.md in the repository
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Xbrz.ColorDistance;
 using Xbrz.Scaler;
 
 namespace Xbrz;
 
-public class XbrzScaler
+public partial class XbrzScaler
 {
-    public sealed class ScalerCfg(double luminanceWeight, double equalColorTolerance, double centerDirectionBias, double dominantDirectionThreshold, double steepDirectionThreshold)
-    {
-        public double LuminanceWeight { get; } = luminanceWeight;
-        public double EqualColorTolerance { get; } = equalColorTolerance;
-        public double CenterDirectionBias { get; } = centerDirectionBias;
-        public double DominantDirectionThreshold { get; } = dominantDirectionThreshold;
-        public double SteepDirectionThreshold { get; } = steepDirectionThreshold;
-
-        public ScalerCfg() : this(1, 30, 4, 3.6, 2.2) { }
-
-        public ScalerCfg WithLuminanceWeight(double luminanceWeight) => new(luminanceWeight, EqualColorTolerance, CenterDirectionBias, DominantDirectionThreshold, SteepDirectionThreshold);
-        public ScalerCfg WithEqualColorTolerance(double equalColorTolerance) => new(LuminanceWeight, equalColorTolerance, CenterDirectionBias, DominantDirectionThreshold, SteepDirectionThreshold);
-        public ScalerCfg WithCenterDirectionBias(double centerDirectionBias) => new(LuminanceWeight, EqualColorTolerance, centerDirectionBias, DominantDirectionThreshold, SteepDirectionThreshold);
-        public ScalerCfg WithDominantDirectionThreshold(double dominantDirectionThreshold) => new(LuminanceWeight, EqualColorTolerance, CenterDirectionBias, dominantDirectionThreshold, SteepDirectionThreshold);
-        public ScalerCfg WithSteepDirectionThreshold(double steepDirectionThreshold) => new(LuminanceWeight, EqualColorTolerance, CenterDirectionBias, DominantDirectionThreshold, steepDirectionThreshold);
-    }
-
     private const int SoftMaxArrayLength = int.MaxValue - 8;
 
     private readonly AbstractScaler scaler;
-    private readonly ColorDistance.ColorDistance dist;
-    private readonly ScalerCfg cfg;
+    private readonly ColorDistance.ColorDistance? customDist;
     private readonly bool withAlpha;
+    private readonly double lumaWeight;
+    private readonly double equalTol;
+    private readonly double equalTolSq;
+    private readonly double centerBias;
+    private readonly double dominantTol;
+    private readonly double steepTol;
+    private readonly double steepTolSq;
+    private readonly bool useDistSq; // safe for default YCbCr without alpha wrap
+
+    public ScalerCfg Cfg { get; }
+    public int Factor => scaler.Scale;
 
     public XbrzScaler(int factor) : this(factor, true) { }
     public XbrzScaler(int factor, bool withAlpha) : this(factor, withAlpha, new ScalerCfg()) { }
+
     public XbrzScaler(int factor, bool withAlpha, ScalerCfg cfg)
-        : this(factor, withAlpha, cfg, ColorDistanceFactory.YCbCr(cfg.LuminanceWeight)) { }
+        : this(Create(factor, withAlpha, cfg, customDist: null)) { }
 
     public XbrzScaler(int factor, bool withAlpha, ScalerCfg cfg, ColorDistance.ColorDistance dist)
+        : this(Create(factor, withAlpha, cfg, customDist: dist ?? throw new ArgumentNullException(nameof(dist)))) { }
+
+    private XbrzScaler(in InitState state)
     {
-        scaler = ScalerFactory.ForFactor(factor, withAlpha);
-        this.cfg = cfg;
-        this.dist = withAlpha ? ColorDistanceFactory.WithAlpha(dist) : dist;
-        this.withAlpha = withAlpha;
+        scaler = state.Scaler;
+        customDist = state.CustomDist;
+        Cfg = state.Cfg;
+        withAlpha = state.WithAlpha;
+        lumaWeight = state.LumaWeight;
+        equalTol = state.EqualTol;
+        equalTolSq = state.EqualTolSq;
+        centerBias = state.CenterBias;
+        dominantTol = state.DominantTol;
+        steepTol = state.SteepTol;
+        steepTolSq = state.SteepTolSq;
+        useDistSq = state.UseDistSq;
     }
 
-    public int Factor() => scaler.Scale;
-    public int Scale() => Factor();
+    private readonly record struct InitState(
+        AbstractScaler Scaler,
+        ColorDistance.ColorDistance? CustomDist,
+        ScalerCfg Cfg,
+        bool WithAlpha,
+        double LumaWeight,
+        double EqualTol,
+        double EqualTolSq,
+        double CenterBias,
+        double DominantTol,
+        double SteepTol,
+        double SteepTolSq,
+        bool UseDistSq);
+
+    private static InitState Create(int factor, bool withAlpha, ScalerCfg cfg, ColorDistance.ColorDistance? customDist)
+    {
+        ArgumentNullException.ThrowIfNull(cfg);
+        double equalTol = cfg.EqualColorTolerance;
+        double steepTol = cfg.SteepDirectionThreshold;
+        return new InitState(
+            Scaler: ScalerFactory.ForFactor(factor, withAlpha),
+            CustomDist: customDist,
+            Cfg: cfg,
+            WithAlpha: withAlpha,
+            LumaWeight: cfg.LuminanceWeight,
+            EqualTol: equalTol,
+            EqualTolSq: equalTol * equalTol,
+            CenterBias: cfg.CenterDirectionBias,
+            DominantTol: cfg.DominantDirectionThreshold,
+            SteepTol: steepTol,
+            SteepTolSq: steepTol * steepTol,
+            UseDistSq: customDist is null && !withAlpha);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private double Dist(int pix1, int pix2) => dist(pix1, pix2);
+    private static double WrapAlpha(int pix1, int pix2, double d)
+    {
+        int a1 = Color.GetAlpha(pix1);
+        int a2 = Color.GetAlpha(pix2);
+        return a1 < a2 ? (a1 / 255.0 * d) + (a2 - a1)
+                       : (a2 / 255.0 * d) + (a1 - a2);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool Eq(int pix1, int pix2) => Dist(pix1, pix2) < cfg.EqualColorTolerance;
+    private double Dist(int pix1, int pix2)
+    {
+        double d = customDist is null
+            ? YCbCrMath.Distance(lumaWeight, pix1, pix2)
+            : customDist(pix1, pix2);
+        return withAlpha ? WrapAlpha(pix1, pix2, d) : d;
+    }
+
+    /// <summary>
+    /// Comparison metric for order / threshold tests. Uses DistSq when safe
+    /// (default YCbCr, no alpha wrap); otherwise Dist. Not valid for summing.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private double Cmp(int pix1, int pix2)
+        => useDistSq ? YCbCrMath.DistanceSquared(lumaWeight, pix1, pix2) : Dist(pix1, pix2);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool Eq(int pix1, int pix2)
+        => useDistSq
+            ? YCbCrMath.DistanceSquared(lumaWeight, pix1, pix2) < equalTolSq
+            : Dist(pix1, pix2) < equalTol;
 
     private void PreProcessCorners(Kernel4x4 ker, ref BlendResult result)
     {
         result.Reset();
         if ((ker.f == ker.g && ker.j == ker.k) || (ker.f == ker.j && ker.g == ker.k))
             return;
-        double jg = Dist(ker.i, ker.f) + Dist(ker.f, ker.c) + Dist(ker.n, ker.k) + Dist(ker.k, ker.h) + (cfg.CenterDirectionBias * Dist(ker.j, ker.g));
-        double fk = Dist(ker.e, ker.j) + Dist(ker.j, ker.o) + Dist(ker.b, ker.g) + Dist(ker.g, ker.l) + (cfg.CenterDirectionBias * Dist(ker.f, ker.k));
+        // Sums of distances — must use Dist (not DistSq / Cmp).
+        double jg = Dist(ker.i, ker.f) + Dist(ker.f, ker.c) + Dist(ker.n, ker.k) + Dist(ker.k, ker.h) + (centerBias * Dist(ker.j, ker.g));
+        double fk = Dist(ker.e, ker.j) + Dist(ker.j, ker.o) + Dist(ker.b, ker.g) + Dist(ker.g, ker.l) + (centerBias * Dist(ker.f, ker.k));
         if (jg < fk)
         {
-            bool dominantGradient = cfg.DominantDirectionThreshold * jg < fk;
+            bool dominantGradient = dominantTol * jg < fk;
             if (ker.f != ker.g && ker.f != ker.j)
                 result.BlendF = dominantGradient ? BlendType.Dominant : BlendType.Normal;
             if (ker.k != ker.j && ker.k != ker.g)
@@ -76,7 +140,7 @@ public class XbrzScaler
         }
         else if (fk < jg)
         {
-            bool dominantGradient = cfg.DominantDirectionThreshold * fk < jg;
+            bool dominantGradient = dominantTol * fk < jg;
             if (ker.j != ker.f && ker.j != ker.k)
                 result.BlendJ = dominantGradient ? BlendType.Dominant : BlendType.Normal;
             if (ker.g != ker.f && ker.g != ker.k)
@@ -87,60 +151,46 @@ public class XbrzScaler
     private void BlendPixel(RotationDegree rotDeg, Kernel3x3 ker, OutputMatrix outMatrix, byte blendInfo)
     {
         byte blend = BlendInfo.Rotate(blendInfo, rotDeg);
-        if (BlendInfo.GetBottomR(blend) < BlendType.Normal)
+        BlendType bottomR = BlendInfo.GetBottomR(blend);
+        if (bottomR < BlendType.Normal)
             return;
 
         ker.SetRotation(rotDeg);
         outMatrix.SetRotationDegree(rotDeg);
-        int e = ker.E;
-        int f = ker.F;
-        int h = ker.H;
-        int g = ker.G;
-        int c = ker.C;
-        int i = ker.I;
-        bool doLineBlend;
-        if (BlendInfo.GetBottomR(blend) >= BlendType.Dominant)
-            doLineBlend = true;
-        else if (BlendInfo.GetTopR(blend) != BlendType.None && !Eq(e, g))
-            doLineBlend = false;
-        else if (BlendInfo.GetBottomL(blend) != BlendType.None && !Eq(e, c))
-            doLineBlend = false;
-        else if (!Eq(e, i) && Eq(g, h) && Eq(h, i) && Eq(i, f) && Eq(f, c))
-            doLineBlend = false;
-        else
-            doLineBlend = true;
+        int e = ker.E, f = ker.F, h = ker.H, g = ker.G, c = ker.C, i = ker.I;
 
-        int px = Dist(e, f) <= Dist(e, h) ? f : h;
+        bool doLineBlend = bottomR >= BlendType.Dominant
+            || (BlendInfo.GetTopR(blend) == BlendType.None || Eq(e, g))
+            && (BlendInfo.GetBottomL(blend) == BlendType.None || Eq(e, c))
+            && (Eq(e, i) || !Eq(g, h) || !Eq(h, i) || !Eq(i, f) || !Eq(f, c));
+
+        int px = Cmp(e, f) <= Cmp(e, h) ? f : h;
         if (!doLineBlend)
         {
             scaler.BlendCorner(px, outMatrix);
             return;
         }
 
-        double fg = Dist(f, g);
-        double hc = Dist(h, c);
-        bool haveShallowLine = cfg.SteepDirectionThreshold * fg <= hc && e != g && ker.D != g;
-        bool haveSteepLine = cfg.SteepDirectionThreshold * hc <= fg && e != c && ker.B != c;
-        if (haveShallowLine)
-        {
-            if (haveSteepLine)
-                scaler.BlendLineSteepAndShallow(px, outMatrix);
-            else
-                scaler.BlendLineShallow(px, outMatrix);
-        }
+        // Dist: steepTol * d1 <= d2; DistSq: steepTol² * d1² <= d2²
+        double steepFactor = useDistSq ? steepTolSq : steepTol;
+        double fg = Cmp(f, g);
+        double hc = Cmp(h, c);
+        bool haveShallowLine = steepFactor * fg <= hc && e != g && ker.D != g;
+        bool haveSteepLine = steepFactor * hc <= fg && e != c && ker.B != c;
+
+        if (haveShallowLine && haveSteepLine)
+            scaler.BlendLineSteepAndShallow(px, outMatrix);
+        else if (haveShallowLine)
+            scaler.BlendLineShallow(px, outMatrix);
         else if (haveSteepLine)
-        {
             scaler.BlendLineSteep(px, outMatrix);
-        }
         else
-        {
             scaler.BlendLineDiagonal(px, outMatrix);
-        }
     }
 
     public int[] ScaleImage(int[] src, int[]? trg, int srcWidth, int srcHeight)
     {
-        trg ??= new int[TargetArraySize(srcWidth, srcHeight, Factor())];
+        trg ??= new int[TargetArraySize(srcWidth, srcHeight, Factor)];
         ScaleImage(src, trg, srcWidth, srcHeight, 0, srcHeight);
         return trg;
     }
@@ -156,22 +206,20 @@ public class XbrzScaler
         int outWidth = srcWidth * scale;
         var pool = ArrayPool<byte>.Shared;
 
-        Parallel.For(
-            yFirst,
-            yLast,
-            localInit: () =>
+        // Stripe consecutive rows so each worker can roll preProcBuf (Java/C++ style)
+        // instead of re-preprocessing y-1 on every row.
+        Parallel.ForEach(Partitioner.Create(yFirst, yLast), range =>
+        {
+            byte[] preProcBuf = pool.Rent(srcWidth);
+            try
             {
-                byte[] preProcBuf = pool.Rent(srcWidth);
                 var ker4 = new Kernel4x4(src, srcWidth, srcHeight, withAlpha);
                 var outMatrix = new OutputMatrix(scale, trg, outWidth);
-                return (preProcBuf, ker4, outMatrix);
-            },
-            body: (y, _, state) =>
-            {
-                var (preProcBuf, ker4, outMatrix) = state;
+                var ker3 = ker4.Kernel3x3;
                 BlendResult res = default;
 
-                ker4.PositionY(y - 1);
+                // Seed top corners for the first row of this stripe from yStart - 1.
+                ker4.PositionY(range.Item1 - 1);
                 PreProcessCorners(ker4, ref res);
                 BlendInfo.ClearAddTopL(preProcBuf, 0, res.BlendK);
                 for (int x = 0; x < srcWidth; ++x)
@@ -183,37 +231,41 @@ public class XbrzScaler
                         BlendInfo.ClearAddTopL(preProcBuf, x + 1, res.BlendK);
                 }
 
-                var ker3 = ker4.Kernel3x3;
-                outMatrix.PositionY(y);
-                ker4.PositionY(y);
-                PreProcessCorners(ker4, ref res);
-                byte blendXy1 = (byte)res.BlendK;
-                BlendInfo.AddBottomL(preProcBuf, 0, res.BlendG);
-                for (int x = 0; x < srcWidth; ++x, outMatrix.IncrementX())
+                for (int y = range.Item1; y < range.Item2; ++y)
                 {
-                    ker4.ShiftAndReadDhlp(x);
+                    outMatrix.PositionY(y);
+                    ker4.PositionY(y);
                     PreProcessCorners(ker4, ref res);
-                    byte blendXy = BlendInfo.AddBottomR(preProcBuf[x], res.BlendF);
-                    blendXy1 = BlendInfo.AddTopR(blendXy1, res.BlendJ);
-                    preProcBuf[x] = blendXy1;
-                    if (x + 1 < srcWidth)
+                    byte blendXy1 = (byte)res.BlendK;
+                    BlendInfo.AddBottomL(preProcBuf, 0, res.BlendG);
+                    for (int x = 0; x < srcWidth; ++x, outMatrix.IncrementX())
                     {
-                        blendXy1 = (byte)res.BlendK;
-                        BlendInfo.AddBottomL(preProcBuf, x + 1, res.BlendG);
-                    }
-                    outMatrix.FillBlock(ker4.f);
-                    if (BlendInfo.BlendingNeeded(blendXy))
-                    {
-                        BlendPixel(RotationDegree.Rot0, ker3, outMatrix, blendXy);
-                        BlendPixel(RotationDegree.Rot90, ker3, outMatrix, blendXy);
-                        BlendPixel(RotationDegree.Rot180, ker3, outMatrix, blendXy);
-                        BlendPixel(RotationDegree.Rot270, ker3, outMatrix, blendXy);
+                        ker4.ShiftAndReadDhlp(x);
+                        PreProcessCorners(ker4, ref res);
+                        byte blendXy = BlendInfo.AddBottomR(preProcBuf[x], res.BlendF);
+                        blendXy1 = BlendInfo.AddTopR(blendXy1, res.BlendJ);
+                        preProcBuf[x] = blendXy1; // tops for (x, y+1) — next row
+                        if (x + 1 < srcWidth)
+                        {
+                            blendXy1 = (byte)res.BlendK;
+                            BlendInfo.AddBottomL(preProcBuf, x + 1, res.BlendG);
+                        }
+                        outMatrix.FillBlock(ker4.f);
+                        if (BlendInfo.BlendingNeeded(blendXy))
+                        {
+                            BlendPixel(RotationDegree.Rot0, ker3, outMatrix, blendXy);
+                            BlendPixel(RotationDegree.Rot90, ker3, outMatrix, blendXy);
+                            BlendPixel(RotationDegree.Rot180, ker3, outMatrix, blendXy);
+                            BlendPixel(RotationDegree.Rot270, ker3, outMatrix, blendXy);
+                        }
                     }
                 }
-
-                return state;
-            },
-            localFinally: state => pool.Return(state.preProcBuf));
+            }
+            finally
+            {
+                pool.Return(preProcBuf);
+            }
+        });
     }
 
     public static int[] ScaleImage(int factor, bool hasAlpha, int[] src, int[]? trg, int srcWidth, int srcHeight)

@@ -33,7 +33,7 @@ Target framework: **net10.0** everywhere. Nullable and implicit usings are enabl
 ## Public API (keep stable)
 
 - Namespace root: **`Xbrz`** (not `XbrzSharp`)
-- Primary type: `Xbrz.XbrzScaler` + nested `ScalerCfg`
+- Primary type: `Xbrz.XbrzScaler` + nested `ScalerCfg` record; scale via `Factor` property
 - Pixels: packed **ARGB** `int[]` (A in high byte)
 - Factors: **2–6** via `ScalerFactory`
 - `ScaleImage(src, trg, w, h)` — `trg` may be `null` (allocated)

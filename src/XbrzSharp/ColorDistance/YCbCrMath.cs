@@ -4,6 +4,8 @@
 // Copyright (c) 2025 Ho Tzin Mein
 //
 // For the full license text, see LICENSE.md in the repository
+using System.Runtime.CompilerServices;
+
 namespace Xbrz.ColorDistance;
 
 /// <summary>ITU-R BT.2020 YCbCr constants and distance helper.</summary>
@@ -15,7 +17,8 @@ internal static class YCbCrMath
     public const double ScaleB = 0.5 / (1 - Kb);
     public const double ScaleR = 0.5 / (1 - Kr);
 
-    public static double Distance(double lumaWeight, int pix1, int pix2)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static double DistanceSquared(double lumaWeight, int pix1, int pix2)
     {
         int rDiff = Color.GetRed(pix1) - Color.GetRed(pix2);
         int gDiff = Color.GetGreen(pix1) - Color.GetGreen(pix2);
@@ -24,8 +27,13 @@ internal static class YCbCrMath
         double cb = ScaleB * (bDiff - y);
         double cr = ScaleR * (rDiff - y);
         double weightedY = lumaWeight == 1.0 ? y : lumaWeight * y;
-        return Math.Sqrt(Square(weightedY) + Square(cb) + Square(cr));
+        return Square(weightedY) + Square(cb) + Square(cr);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static double Distance(double lumaWeight, int pix1, int pix2)
+        => Math.Sqrt(DistanceSquared(lumaWeight, pix1, pix2));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double Square(double value) => value * value;
 }
